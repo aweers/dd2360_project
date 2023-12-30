@@ -52,7 +52,6 @@ int main(int argc, char *argv[])
   func_ret_t ret;
   const char *input_file = NULL;
   float *m, *d_m, *mm;
-  double *d_m_double, *m_double;
   stopwatch sw;
 
   while ((opt = getopt_long(argc, argv, "::vs:i:",
@@ -127,20 +126,13 @@ int main(int argc, char *argv[])
     matrix_duplicate(m, &mm, matrix_dim);
   }
 
-  m_double = (double*)malloc(matrix_dim*matrix_dim*sizeof(double));
-  for (int i = 0; i < matrix_dim * matrix_dim; i++) {
-    m_double[i] = (double)m[i];
-  }
-
   // Allocate the device matrix
-  //CHECK_CUDA(cudaMalloc((void **)&d_m, matrix_dim * matrix_dim * sizeof(float)));
-  CHECK_CUDA(cudaMalloc((void **)&d_m_double, matrix_dim * matrix_dim * sizeof(double)));
+  CHECK_CUDA(cudaMalloc((void **)&d_m, matrix_dim * matrix_dim * sizeof(float)));
   printf("Performing LU decomposition\n");
   stopwatch_start(&sw);
 
   // Copy the host matrix to the device
-  //CHECK_CUDA(cudaMemcpy(d_m, m, matrix_dim * matrix_dim * sizeof(float), cudaMemcpyHostToDevice));
-  CHECK_CUDA(cudaMemcpy(d_m_double, m_double, matrix_dim * matrix_dim * sizeof(double), cudaMemcpyHostToDevice));
+  CHECK_CUDA(cudaMemcpy(d_m, m, matrix_dim * matrix_dim * sizeof(float), cudaMemcpyHostToDevice));
 
   // Create the cuSOLVER handle
   CHECK_CUSOLVER(cusolverDnCreate(&handle));
@@ -150,28 +142,19 @@ int main(int argc, char *argv[])
   CHECK_CUDA(cudaMalloc((void **)&devInfo, sizeof(int)));
 
   // Compute the LU decomposition
-  //CHECK_CUSOLVER(cusolverDnSgetrf_bufferSize(handle, matrix_dim, matrix_dim, d_m, matrix_dim, &Lwork));
-  CHECK_CUSOLVER(cusolverDnDgetrf_bufferSize(handle, matrix_dim, matrix_dim, d_m_double, matrix_dim, &Lwork));
-  //float *devWork = NULL;
-  double *devWork = NULL;
-  //CHECK_CUDA(cudaMalloc((void **)&devWork, sizeof(float) * Lwork));
-  CHECK_CUDA(cudaMalloc((void **)&devWork, sizeof(double) * Lwork));
-  //CHECK_CUSOLVER(cusolverDnSgetrf(handle, matrix_dim, matrix_dim, d_m, matrix_dim, devWork, devIpiv, devInfo));
-  CHECK_CUSOLVER(cusolverDnDgetrf(handle, matrix_dim, matrix_dim, d_m_double, matrix_dim, devWork, devIpiv, devInfo));
+  CHECK_CUSOLVER(cusolverDnSgetrf_bufferSize(handle, matrix_dim, matrix_dim, d_m, matrix_dim, &Lwork));
+  float *devWork = NULL;
+  CHECK_CUDA(cudaMalloc((void **)&devWork, sizeof(float) * Lwork));
+  CHECK_CUSOLVER(cusolverDnSgetrf(handle, matrix_dim, matrix_dim, d_m, matrix_dim, devWork, devIpiv, devInfo));
 
   // Copy the result back to the host
-  //CHECK_CUDA(cudaMemcpy(m, d_m, matrix_dim * matrix_dim * sizeof(float), cudaMemcpyDeviceToHost));
-  CHECK_CUDA(cudaMemcpy(m_double, d_m_double, matrix_dim * matrix_dim * sizeof(double), cudaMemcpyDeviceToHost));
+  CHECK_CUDA(cudaMemcpy(m, d_m, matrix_dim * matrix_dim * sizeof(float), cudaMemcpyDeviceToHost));
 
 
   stopwatch_stop(&sw);
   printf("Time consumed(ms): %lf\n", 1000*get_interval_by_sec(&sw));
 
   printf("LU decomposition completed\n");
-
-  for (int i = 0; i < matrix_dim * matrix_dim; i++) {
-    m[i] = (float)m_double[i];
-  }
 
 
   if (do_verify){
