@@ -1,38 +1,21 @@
-/*
- * =====================================================================================
- *
- *       Filename:  lud.cu
- *
- *    Description:  The main wrapper for the suite
- *
- *        Version:  1.0
- *        Created:  10/22/2009 08:40:34 PM
- *       Revision:  none
- *       Compiler:  gcc
- *
- *         Author:  Liang Wang (lw2aw), lw2aw@virginia.edu
- *        Company:  CS@UVa
- *
- * =====================================================================================
- */
-
-#include <cuda.h>
+%%writefile improved/cuLUD.cu
 #include <stdio.h>
-#include <unistd.h>
-#include <getopt.h>
 #include <stdlib.h>
 #include <assert.h>
+#include <getopt.h>
+#include <cuda.h>
+#include <cusolverDn.h>
 
 #include "common.h"
 
 #ifdef RD_WG_SIZE_0_0
-        #define BLOCK_SIZE RD_WG_SIZE_0_0
+    #define BLOCK_SIZE RD_WG_SIZE_0_0
 #elif defined(RD_WG_SIZE_0)
-        #define BLOCK_SIZE RD_WG_SIZE_0
+    #define BLOCK_SIZE RD_WG_SIZE_0
 #elif defined(RD_WG_SIZE)
-        #define BLOCK_SIZE RD_WG_SIZE
+    #define BLOCK_SIZE RD_WG_SIZE
 #else
-        #define BLOCK_SIZE 16
+    #define BLOCK_SIZE 16
 #endif
 
 static int do_verify = 0;
@@ -45,25 +28,38 @@ static struct option long_options[] = {
   {0,0,0,0}
 };
 
-extern void
-lud_cuda(float *d_m, int matrix_dim);
+#define CHECK_CUDA(call)                                          \
+  if ((call) != cudaSuccess)                                      \
+  {                                                               \
+    fprintf(stderr, "CUDA error at %s %d\n", __FILE__, __LINE__); \
+    return EXIT_FAILURE;                                          \
+  }
 
+#define CHECK_CUSOLVER(call)                                          \
+  if ((call) != CUSOLVER_STATUS_SUCCESS)                              \
+  {                                                                   \
+    fprintf(stderr, "cuSOLVER error at %s %d\n", __FILE__, __LINE__); \
+    return EXIT_FAILURE;                                              \
+  }
 
-int
-main ( int argc, char *argv[] )
+int main(int argc, char *argv[])
 {
   printf("WG size of kernel = %d X %d\n", BLOCK_SIZE, BLOCK_SIZE);
-
-  int matrix_dim = 32; /* default matrix_dim */
-  int opt, option_index=0;
+  cusolverDnHandle_t handle;
+  int *devIpiv, *devInfo;
+  int matrix_dim = 32; // example matrix size
+  int Lwork = 0;
+  int opt, option_index = 0;
   func_ret_t ret;
   const char *input_file = NULL;
-  float *m, *d_m, *mm;
+  double *m, *d_m, *mm;
   stopwatch sw;
 
-  while ((opt = getopt_long(argc, argv, "::vs:i:", 
-                            long_options, &option_index)) != -1 ) {
-    switch(opt){
+  while ((opt = getopt_long(argc, argv, "::vs:i:",
+                            long_options, &option_index)) != -1)
+  {
+    switch (opt)
+    {
     case 'i':
       input_file = optarg;
       break;
@@ -85,76 +81,104 @@ main ( int argc, char *argv[] )
       break;
     default:
       fprintf(stderr, "Usage: %s [-v] [-s matrix_size|-i input_file]\n",
-	      argv[0]);
+              argv[0]);
       exit(EXIT_FAILURE);
     }
   }
-  
-  if ( (optind < argc) || (optind == 1)) {
+
+  if ((optind < argc) || (optind == 1))
+  {
     fprintf(stderr, "Usage: %s [-v] [-s matrix_size|-i input_file]\n", argv[0]);
     exit(EXIT_FAILURE);
   }
 
-  if (input_file) {
+  if (input_file)
+  {
     printf("Reading matrix from file %s\n", input_file);
     ret = create_matrix_from_file(&m, input_file, &matrix_dim);
-    if (ret != RET_SUCCESS) {
+    if (ret != RET_SUCCESS)
+    {
       m = NULL;
       fprintf(stderr, "error create matrix from file %s\n", input_file);
       exit(EXIT_FAILURE);
     }
-  } 
-  else if (matrix_dim) {
+  }
+  else if (matrix_dim)
+  {
     printf("Creating matrix internally size=%d\n", matrix_dim);
     ret = create_matrix(&m, matrix_dim);
-    if (ret != RET_SUCCESS) {
+    if (ret != RET_SUCCESS)
+    {
       m = NULL;
       fprintf(stderr, "error create matrix internally size=%d\n", matrix_dim);
       exit(EXIT_FAILURE);
     }
   }
 
-
-  else {
+  else
+  {
     printf("No input file specified!\n");
     exit(EXIT_FAILURE);
   }
-
-  if (do_verify){
+  if (do_verify)
+  {
     printf("Before LUD\n");
     // print_matrix(m, matrix_dim);
     matrix_duplicate(m, &mm, matrix_dim);
   }
 
-  cudaMalloc((void**)&d_m, 
-             matrix_dim*matrix_dim*sizeof(float));
-
-  /* beginning of timing point */
+  // Allocate the device matrix
+  CHECK_CUDA(cudaMalloc((void **)&d_m, matrix_dim * matrix_dim * sizeof(double)));
+  printf("Performing LU decomposition\n");
   stopwatch_start(&sw);
-  cudaMemcpy(d_m, m, matrix_dim*matrix_dim*sizeof(float), 
-	     cudaMemcpyHostToDevice);
 
-  lud_cuda(d_m, matrix_dim);
+  // Copy the host matrix to the device
+  CHECK_CUDA(cudaMemcpy(d_m, m, matrix_dim * matrix_dim * sizeof(double), cudaMemcpyHostToDevice));
 
-  cudaMemcpy(m, d_m, matrix_dim*matrix_dim*sizeof(float), 
-	     cudaMemcpyDeviceToHost);
+  // Create the cuSOLVER handle
+  CHECK_CUSOLVER(cusolverDnCreate(&handle));
 
-  /* end of timing point */
+  // Allocate the pivot array and info parameter on the device
+  CHECK_CUDA(cudaMalloc((void **)&devIpiv, matrix_dim * sizeof(int)));
+  CHECK_CUDA(cudaMalloc((void **)&devInfo, sizeof(int)));
+
+  // Compute the LU decomposition
+  CHECK_CUSOLVER(cusolverDnDgetrf_bufferSize(handle, matrix_dim, matrix_dim, d_m, matrix_dim, &Lwork));
+  double *devWork = NULL;
+  CHECK_CUDA(cudaMalloc((void **)&devWork, sizeof(double) * Lwork));
+  CHECK_CUSOLVER(cusolverDnDgetrf(handle, matrix_dim, matrix_dim, d_m, matrix_dim, devWork, devIpiv, devInfo));
+
+  // Copy the result back to the host
+  CHECK_CUDA(cudaMemcpy(m, d_m, matrix_dim * matrix_dim * sizeof(double), cudaMemcpyDeviceToHost));
+
+
   stopwatch_stop(&sw);
   printf("Time consumed(ms): %lf\n", 1000*get_interval_by_sec(&sw));
 
-  cudaFree(d_m);
+  printf("LU decomposition completed\n");
+
+
+  int hostInfo;
+  CHECK_CUDA(cudaMemcpy(&hostInfo, devInfo, sizeof(int), cudaMemcpyDeviceToHost));
+  printf("Devinfo: %d\n", hostInfo);
 
 
   if (do_verify){
     printf("After LUD\n");
-    // print_matrix(m, matrix_dim);
+    //print_matrix(m, matrix_dim);
+    //print_matrix(mm, matrix_dim);
     printf(">>>Verify<<<<\n");
-    lud_verify(mm, m, matrix_dim); 
+    lud_verify(mm, m, matrix_dim, 1);
     free(mm);
   }
 
+  // Cleanup
+  CHECK_CUDA(cudaFree(d_m));
+  CHECK_CUDA(cudaFree(devIpiv));
+  CHECK_CUDA(cudaFree(devInfo));
+  CHECK_CUDA(cudaFree(devWork));
+  cusolverDnDestroy(handle);
   free(m);
 
-  return EXIT_SUCCESS;
-}				/* ----------  end of function main  ---------- */
+  return 0;
+}
