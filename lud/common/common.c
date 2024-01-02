@@ -38,9 +38,9 @@ get_interval_by_usec(stopwatch *sw){
 }
 
 func_ret_t 
-create_matrix_from_file(float **mp, const char* filename, int *size_p){
+create_matrix_from_file(double **mp, const char* filename, int *size_p){
   int i, j, size;
-  float *m;
+  double *m;
   FILE *fp = NULL;
 
   fp = fopen(filename, "rb");
@@ -50,7 +50,7 @@ create_matrix_from_file(float **mp, const char* filename, int *size_p){
 
   fscanf(fp, "%d\n", &size);
 
-  m = (float*) malloc(sizeof(float)*size*size);
+  m = (double*) malloc(sizeof(double)*size*size);
   if ( m == NULL) {
       fclose(fp);
       return RET_FAILURE;
@@ -58,7 +58,7 @@ create_matrix_from_file(float **mp, const char* filename, int *size_p){
 
   for (i=0; i < size; i++) {
       for (j=0; j < size; j++) {
-          fscanf(fp, "%f ", m+i*size+j);
+          fscanf(fp, "%lf ", m+i*size+j);
       }
   }
 
@@ -72,17 +72,17 @@ create_matrix_from_file(float **mp, const char* filename, int *size_p){
 
 
 func_ret_t
-create_matrix_from_random(float **mp, int size){
-  float *l, *u, *m;
+create_matrix_from_random(double **mp, int size){
+  double *l, *u, *m;
   int i,j,k;
 
   srand(time(NULL));
 
-  l = (float*)malloc(size*size*sizeof(float));
+  l = (double*)malloc(size*size*sizeof(double));
   if ( l == NULL)
     return RET_FAILURE;
 
-  u = (float*)malloc(size*size*sizeof(float));
+  u = (double*)malloc(size*size*sizeof(double));
   if ( u == NULL) {
       free(l);
       return RET_FAILURE;
@@ -126,7 +126,7 @@ create_matrix_from_random(float **mp, int size){
 }
 
 void
-matrix_multiply(float *inputa, float *inputb, float *output, int size){
+matrix_multiply(double *inputa, double *inputb, double *output, int size){
   int i, j, k;
 
   for (i=0; i < size; i++)
@@ -137,65 +137,93 @@ matrix_multiply(float *inputa, float *inputb, float *output, int size){
 }
 
 func_ret_t
-lud_verify(float *m, float *lu, int matrix_dim){
+lud_verify(double *m, double *lu, int matrix_dim, int choice){
   int i,j,k;
-  float *tmp = (float*)malloc(matrix_dim*matrix_dim*sizeof(float));
 
-  for (i=0; i < matrix_dim; i ++)
-    for (j=0; j< matrix_dim; j++) {
-        float sum = 0;
-        float l,u;
-        for (k=0; k <= MIN(i,j); k++){
-            if ( i==k)
-              l=1;
-            else
-              l=lu[i*matrix_dim+k];
-            u=lu[k*matrix_dim+j];
-            sum+=l*u;
-        }
-        tmp[i*matrix_dim+j] = sum;
+    double *tmp = (double*)malloc(matrix_dim*matrix_dim*sizeof(double));
+    if(choice == 0)
+    {
+
+        for (i=0; i < matrix_dim; i ++)
+            for (j=0; j< matrix_dim; j++) {
+                double sum = 0;
+                double l,u;
+                for (k=0; k <= MIN(i,j); k++){
+                    if ( i==k)
+                    l=1;
+                    else
+                    l=lu[i*matrix_dim+k];
+                    u=lu[k*matrix_dim+j];
+                    sum+=l*u;
+                }
+                tmp[i*matrix_dim+j] = sum;
+            }
+    } else{
+        for (i=0; i < matrix_dim; i ++)
+            for (j=0; j< matrix_dim; j++) {
+                double sum = 0;
+                double l,u;
+                for (k=0; k <= MIN(i,j); k++){
+                    if ( j==k)
+                    l=1;
+                    else
+                    l=lu[k*matrix_dim+j];
+                    u=lu[i*matrix_dim+k];
+                    sum+=l*u;
+                }
+                tmp[i*matrix_dim+j] = sum;
+            }
     }
-  /* printf(">>>>>LU<<<<<<<\n"); */
-  /* for (i=0; i<matrix_dim; i++){ */
-  /*   for (j=0; j<matrix_dim;j++){ */
-  /*       printf("%f ", lu[i*matrix_dim+j]); */
-  /*   } */
-  /*   printf("\n"); */
-  /* } */
-  /* printf(">>>>>result<<<<<<<\n"); */
-  /* for (i=0; i<matrix_dim; i++){ */
-  /*   for (j=0; j<matrix_dim;j++){ */
-  /*       printf("%f ", tmp[i*matrix_dim+j]); */
-  /*   } */
-  /*   printf("\n"); */
-  /* } */
-  /* printf(">>>>>input<<<<<<<\n"); */
-  /* for (i=0; i<matrix_dim; i++){ */
-  /*   for (j=0; j<matrix_dim;j++){ */
-  /*       printf("%f ", m[i*matrix_dim+j]); */
-  /*   } */
-  /*   printf("\n"); */
-  /* } */
+    /* printf(">>>>>LU<<<<<<<\n"); */
+    /* for (i=0; i<matrix_dim; i++){ */
+    /*   for (j=0; j<matrix_dim;j++){ */
+    /*       printf("%f ", lu[i*matrix_dim+j]); */
+    /*   } */
+    /*   printf("\n"); */
+    /* } */
+    /* printf(">>>>>result<<<<<<<\n"); */
+    /* for (i=0; i<matrix_dim; i++){ */
+    /*   for (j=0; j<matrix_dim;j++){ */
+    /*       printf("%f ", tmp[i*matrix_dim+j]); */
+    /*   } */
+    /*   printf("\n"); */
+    /* } */
+    /* printf(">>>>>input<<<<<<<\n"); */
+    /* for (i=0; i<matrix_dim; i++){ */
+    /*   for (j=0; j<matrix_dim;j++){ */
+    /*       printf("%f ", m[i*matrix_dim+j]); */
+    /*   } */
+    /*   printf("\n"); */
+    /* } */
+    int count = 0;
 
-  for (i=0; i<matrix_dim; i++){
-      for (j=0; j<matrix_dim; j++){
-          if ( fabs(m[i*matrix_dim+j]-tmp[i*matrix_dim+j]) > 0.0001)
-            printf("dismatch at (%d, %d): (o)%f (n)%f\n", i, j, m[i*matrix_dim+j], tmp[i*matrix_dim+j]);
-      }
-  }
-  free(tmp);
+    for (i=0; i<matrix_dim; i++){
+        for (j=0; j<matrix_dim; j++){
+            if ( fabs(m[i*matrix_dim+j]-tmp[i*matrix_dim+j]) > 0.0001)
+                {
+                count++;
+                printf("dismatch at (%d, %d): (o)%f (n)%f\n", i, j, m[i*matrix_dim+j], tmp[i*matrix_dim+j]);
+                }
+        }
+    }
+    if(count != 0)
+    {
+        printf("Amount wrong: %d/%d", count, matrix_dim*matrix_dim);
+    }
+    free(tmp);
+  
 }
 
 void
-matrix_duplicate(float *src, float **dst, int matrix_dim) {
-    int s = matrix_dim*matrix_dim*sizeof(float);
-   float *p = (float *) malloc (s);
+matrix_duplicate(double *src, double **dst, int matrix_dim) {
+    int s = matrix_dim*matrix_dim*sizeof(double);
+   double *p = (double *) malloc (s);
    memcpy(p, src, s);
    *dst = p;
 }
 
 void
-print_matrix(float *m, int matrix_dim) {
+print_matrix(double *m, int matrix_dim) {
     int i, j;
     for (i=0; i<matrix_dim;i++) {
       for (j=0; j<matrix_dim;j++)
@@ -208,12 +236,12 @@ print_matrix(float *m, int matrix_dim) {
 // Generate well-conditioned matrix internally  by Ke Wang 2013/08/07 22:20:06
 
 func_ret_t
-create_matrix(float **mp, int size){
-  float *m;
+create_matrix(double **mp, int size){
+  double *m;
   int i,j;
-  float lamda = -0.001;
-  float coe[2*size-1];
-  float coe_i =0.0;
+  double lamda = -0.001;
+  double coe[2*size-1];
+  double coe_i =0.0;
 
   for (i=0; i < size; i++)
     {
@@ -224,7 +252,7 @@ create_matrix(float **mp, int size){
       coe[j]=coe_i;
     }
 
-  m = (float*) malloc(sizeof(float)*size*size);
+  m = (double*) malloc(sizeof(double)*size*size);
   if ( m == NULL) {
       return RET_FAILURE;
   }
