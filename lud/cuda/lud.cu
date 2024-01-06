@@ -53,6 +53,7 @@ int main(int argc, char *argv[])
   func_ret_t ret;
   const char *input_file = NULL;
   double *m, *d_m, *mm;
+  double *devWork = NULL;
   stopwatch sw;
 
   while ((opt = getopt_long(argc, argv, "::vs:i:",
@@ -151,7 +152,6 @@ int main(int argc, char *argv[])
 
     // Compute the LU decomposition
     CHECK_CUSOLVER(cusolverDnDgetrf_bufferSize(handle, matrix_dim, matrix_dim, d_m, matrix_dim, &Lwork));
-    double *devWork = NULL;
     CHECK_CUDA(cudaMalloc((void **)&devWork, sizeof(double) * Lwork));
     CHECK_CUSOLVER(cusolverDnDgetrf(handle, matrix_dim, matrix_dim, d_m, matrix_dim, devWork, devIpiv, devInfo));
   }
