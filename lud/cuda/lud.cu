@@ -6,7 +6,6 @@
 #include <cusolverDn.h>
 
 #include "common.h"
-#include "lud_kernel"
 
 #ifdef RD_WG_SIZE_0_0
     #define BLOCK_SIZE RD_WG_SIZE_0_0
