@@ -17,6 +17,9 @@
     #define BLOCK_SIZE 16
 #endif
 
+extern void
+lud_cuda(double *d_m, int matrix_dim, int cuSolve);
+
 static int do_verify = 0, use_rodina = 0;
 
 static struct option long_options[] = {
