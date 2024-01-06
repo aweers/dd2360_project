@@ -20,7 +20,7 @@
 extern void
 lud_cuda(double *d_m, int matrix_dim);
 
-static int do_verify = 0, use_rodina = 0;
+static int do_verify = 0, use_lib = 1;
 
 static struct option long_options[] = {
   /* name, has_arg, flag, val */
@@ -71,7 +71,7 @@ int main(int argc, char *argv[])
       do_verify = 1;
       break;
     case 'r':
-      use_rodina = 1;
+      use_lib = 0;
       break;
     case 's':
       matrix_dim = atoi(optarg);
@@ -134,6 +134,8 @@ int main(int argc, char *argv[])
     matrix_duplicate(m, &mm, matrix_dim);
   }
 
+  printf("Rodina flag: %d\n", use_lib);
+
   // Allocate the device matrix
   CHECK_CUDA(cudaMalloc((void **)&d_m, matrix_dim * matrix_dim * sizeof(double)));
   printf("Performing LU decomposition\n");
@@ -142,7 +144,7 @@ int main(int argc, char *argv[])
   // Copy the host matrix to the device
   CHECK_CUDA(cudaMemcpy(d_m, m, matrix_dim * matrix_dim * sizeof(double), cudaMemcpyHostToDevice));
 
-  if(use_rodina){
+  if(use_lib == 0){
     lud_cuda(d_m, matrix_dim);
   }
   else {
@@ -168,7 +170,7 @@ int main(int argc, char *argv[])
 
   printf("LU decomposition completed\n");
 
-  if(use_rodina == 0) {
+  if(use_lib == 1) {
     int hostInfo;
     CHECK_CUDA(cudaMemcpy(&hostInfo, devInfo, sizeof(int), cudaMemcpyDeviceToHost));
     printf("Devinfo: %d\n", hostInfo);
@@ -180,13 +182,13 @@ int main(int argc, char *argv[])
     //print_matrix(m, matrix_dim);
     //print_matrix(mm, matrix_dim);
     printf(">>>Verify<<<<\n");
-    lud_verify(mm, m, matrix_dim, use_rodina);
+    lud_verify(mm, m, matrix_dim, use_lib);
     free(mm);
   }
 
   // Cleanup
   CHECK_CUDA(cudaFree(d_m));
-  if(use_rodina == 0) {
+  if(use_lib == 1) {
     CHECK_CUDA(cudaFree(devIpiv));
     CHECK_CUDA(cudaFree(devInfo));
     CHECK_CUDA(cudaFree(devWork));
