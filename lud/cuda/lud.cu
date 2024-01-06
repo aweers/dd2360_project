@@ -17,13 +17,14 @@
     #define BLOCK_SIZE 16
 #endif
 
-static int do_verify = 0;
+static int do_verify = 0, use_rodina = 0;
 
 static struct option long_options[] = {
   /* name, has_arg, flag, val */
   {"input", 1, NULL, 'i'},
   {"size", 1, NULL, 's'},
   {"verify", 0, NULL, 'v'},
+  {"rodina", 0, NULL, 'r'},
   {0,0,0,0}
 };
 
@@ -64,6 +65,9 @@ int main(int argc, char *argv[])
       break;
     case 'v':
       do_verify = 1;
+      break;
+    case 'r':
+      use_rodina = 1;
       break;
     case 's':
       matrix_dim = atoi(optarg);
@@ -134,18 +138,23 @@ int main(int argc, char *argv[])
   // Copy the host matrix to the device
   CHECK_CUDA(cudaMemcpy(d_m, m, matrix_dim * matrix_dim * sizeof(double), cudaMemcpyHostToDevice));
 
-  // Create the cuSOLVER handle
-  CHECK_CUSOLVER(cusolverDnCreate(&handle));
+  if(use_rodina){
+    lud_cuda(d_m, matrix_dim);
+  }
+  else {
+    // Create the cuSOLVER handle
+    CHECK_CUSOLVER(cusolverDnCreate(&handle));
 
-  // Allocate the pivot array and info parameter on the device
-  CHECK_CUDA(cudaMalloc((void **)&devIpiv, matrix_dim * sizeof(int)));
-  CHECK_CUDA(cudaMalloc((void **)&devInfo, sizeof(int)));
+    // Allocate the pivot array and info parameter on the device
+    CHECK_CUDA(cudaMalloc((void **)&devIpiv, matrix_dim * sizeof(int)));
+    CHECK_CUDA(cudaMalloc((void **)&devInfo, sizeof(int)));
 
-  // Compute the LU decomposition
-  CHECK_CUSOLVER(cusolverDnDgetrf_bufferSize(handle, matrix_dim, matrix_dim, d_m, matrix_dim, &Lwork));
-  double *devWork = NULL;
-  CHECK_CUDA(cudaMalloc((void **)&devWork, sizeof(double) * Lwork));
-  CHECK_CUSOLVER(cusolverDnDgetrf(handle, matrix_dim, matrix_dim, d_m, matrix_dim, devWork, devIpiv, devInfo));
+    // Compute the LU decomposition
+    CHECK_CUSOLVER(cusolverDnDgetrf_bufferSize(handle, matrix_dim, matrix_dim, d_m, matrix_dim, &Lwork));
+    double *devWork = NULL;
+    CHECK_CUDA(cudaMalloc((void **)&devWork, sizeof(double) * Lwork));
+    CHECK_CUSOLVER(cusolverDnDgetrf(handle, matrix_dim, matrix_dim, d_m, matrix_dim, devWork, devIpiv, devInfo));
+  }
 
   // Copy the result back to the host
   CHECK_CUDA(cudaMemcpy(m, d_m, matrix_dim * matrix_dim * sizeof(double), cudaMemcpyDeviceToHost));

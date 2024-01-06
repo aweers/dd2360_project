@@ -190,11 +190,11 @@ lud_internal(float *m, int matrix_dim, int offset)
 }
 
 
-void lud_cuda(float *m, int matrix_dim)
+void lud_cuda(double *m, int matrix_dim)
 {
   int i=0;
   dim3 dimBlock(BLOCK_SIZE, BLOCK_SIZE);
-  float *m_debug = (float*)malloc(matrix_dim*matrix_dim*sizeof(float));
+  double *m_debug = (double*)malloc(matrix_dim*matrix_dim*sizeof(double));
 
   for (i=0; i < matrix_dim-BLOCK_SIZE; i += BLOCK_SIZE) {
       lud_diagonal<<<1, BLOCK_SIZE>>>(m, matrix_dim, i);
