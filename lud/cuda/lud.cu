@@ -165,7 +165,7 @@ int main(int argc, char *argv[])
 
   printf("LU decomposition completed\n");
 
-  if(use_rodina == 0) {}
+  if(use_rodina == 0) {
     int hostInfo;
     CHECK_CUDA(cudaMemcpy(&hostInfo, devInfo, sizeof(int), cudaMemcpyDeviceToHost));
     printf("Devinfo: %d\n", hostInfo);
