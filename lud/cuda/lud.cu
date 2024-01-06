@@ -18,7 +18,7 @@
 #endif
 
 extern void
-lud_cuda(double *d_m, int matrix_dim, int cuSolve);
+lud_cuda(double *d_m, int matrix_dim);
 
 static int do_verify = 0, use_rodina = 0;
 
