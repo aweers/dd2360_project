@@ -13,10 +13,10 @@
 
 
 __global__ void 
-lud_diagonal(float *m, int matrix_dim, int offset)
+lud_diagonal(double *m, int matrix_dim, int offset)
 {
   int i,j;
-  __shared__ float shadow[BLOCK_SIZE][BLOCK_SIZE];
+  __shared__ double shadow[BLOCK_SIZE][BLOCK_SIZE];
 
   int array_offset = offset*matrix_dim+offset;
   for(i=0; i < BLOCK_SIZE; i++){
@@ -55,11 +55,11 @@ lud_diagonal(float *m, int matrix_dim, int offset)
 }
 
 __global__ void
-lud_perimeter(float *m, int matrix_dim, int offset)
+lud_perimeter(double *m, int matrix_dim, int offset)
 {
-  __shared__ float dia[BLOCK_SIZE][BLOCK_SIZE];
-  __shared__ float peri_row[BLOCK_SIZE][BLOCK_SIZE];
-  __shared__ float peri_col[BLOCK_SIZE][BLOCK_SIZE];
+  __shared__ double dia[BLOCK_SIZE][BLOCK_SIZE];
+  __shared__ double peri_row[BLOCK_SIZE][BLOCK_SIZE];
+  __shared__ double peri_col[BLOCK_SIZE][BLOCK_SIZE];
 
   int i,j, array_offset;
   int idx;
@@ -165,13 +165,13 @@ lud_perimeter(float *m, int matrix_dim, int offset)
 }
 
 __global__ void
-lud_internal(float *m, int matrix_dim, int offset)
+lud_internal(double *m, int matrix_dim, int offset)
 {
-  __shared__ float peri_row[BLOCK_SIZE][BLOCK_SIZE];
-  __shared__ float peri_col[BLOCK_SIZE][BLOCK_SIZE];
+  __shared__ double peri_row[BLOCK_SIZE][BLOCK_SIZE];
+  __shared__ double peri_col[BLOCK_SIZE][BLOCK_SIZE];
 
   int i;
-  float sum;
+  double sum;
 
   int global_row_id = offset + (blockIdx.y+1)*BLOCK_SIZE;
   int global_col_id = offset + (blockIdx.x+1)*BLOCK_SIZE;

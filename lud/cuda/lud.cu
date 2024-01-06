@@ -6,6 +6,7 @@
 #include <cusolverDn.h>
 
 #include "common.h"
+#include "lud_kernel"
 
 #ifdef RD_WG_SIZE_0_0
     #define BLOCK_SIZE RD_WG_SIZE_0_0
@@ -165,10 +166,11 @@ int main(int argc, char *argv[])
 
   printf("LU decomposition completed\n");
 
-
-  int hostInfo;
-  CHECK_CUDA(cudaMemcpy(&hostInfo, devInfo, sizeof(int), cudaMemcpyDeviceToHost));
-  printf("Devinfo: %d\n", hostInfo);
+  if(use_rodina == 0) {}
+    int hostInfo;
+    CHECK_CUDA(cudaMemcpy(&hostInfo, devInfo, sizeof(int), cudaMemcpyDeviceToHost));
+    printf("Devinfo: %d\n", hostInfo);
+  }
 
 
   if (do_verify){
@@ -176,16 +178,18 @@ int main(int argc, char *argv[])
     //print_matrix(m, matrix_dim);
     //print_matrix(mm, matrix_dim);
     printf(">>>Verify<<<<\n");
-    lud_verify(mm, m, matrix_dim, 1);
+    lud_verify(mm, m, matrix_dim, use_rodina);
     free(mm);
   }
 
   // Cleanup
   CHECK_CUDA(cudaFree(d_m));
-  CHECK_CUDA(cudaFree(devIpiv));
-  CHECK_CUDA(cudaFree(devInfo));
-  CHECK_CUDA(cudaFree(devWork));
-  cusolverDnDestroy(handle);
+  if(use_rodina == 0) {
+    CHECK_CUDA(cudaFree(devIpiv));
+    CHECK_CUDA(cudaFree(devInfo));
+    CHECK_CUDA(cudaFree(devWork));
+    cusolverDnDestroy(handle);
+  }
   free(m);
 
   return 0;
