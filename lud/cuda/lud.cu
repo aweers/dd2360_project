@@ -139,11 +139,11 @@ int main(int argc, char *argv[])
   // Allocate the device matrix
   CHECK_CUDA(cudaMalloc((void **)&d_m, matrix_dim * matrix_dim * sizeof(double)));
   printf("Performing LU decomposition\n");
-  stopwatch_start(&sw);
 
   // Copy the host matrix to the device
   CHECK_CUDA(cudaMemcpy(d_m, m, matrix_dim * matrix_dim * sizeof(double), cudaMemcpyHostToDevice));
 
+  stopwatch_start(&sw);
   if(use_lib == 0){
     lud_cuda(d_m, matrix_dim);
   }
@@ -160,12 +160,12 @@ int main(int argc, char *argv[])
     CHECK_CUDA(cudaMalloc((void **)&devWork, sizeof(double) * Lwork));
     CHECK_CUSOLVER(cusolverDnDgetrf(handle, matrix_dim, matrix_dim, d_m, matrix_dim, devWork, devIpiv, devInfo));
   }
+  stopwatch_stop(&sw);
 
   // Copy the result back to the host
   CHECK_CUDA(cudaMemcpy(m, d_m, matrix_dim * matrix_dim * sizeof(double), cudaMemcpyDeviceToHost));
 
 
-  stopwatch_stop(&sw);
   printf("Time consumed(ms): %lf\n", 1000*get_interval_by_sec(&sw));
 
   printf("LU decomposition completed\n");
