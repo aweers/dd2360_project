@@ -161,12 +161,10 @@ int main(int argc, char *argv[])
     CHECK_CUSOLVER(cusolverDnDgetrf(handle, matrix_dim, matrix_dim, d_m, matrix_dim, devWork, devIpiv, devInfo));
   }
   stopwatch_stop(&sw);
+  printf("Time consumed without memcpy(ms): %lf\n", 1000*get_interval_by_sec(&sw));
 
   // Copy the result back to the host
   CHECK_CUDA(cudaMemcpy(m, d_m, matrix_dim * matrix_dim * sizeof(double), cudaMemcpyDeviceToHost));
-
-
-  printf("Time consumed(ms): %lf\n", 1000*get_interval_by_sec(&sw));
 
   printf("LU decomposition completed\n");
 
