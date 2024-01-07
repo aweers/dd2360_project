@@ -143,11 +143,14 @@ int main(int argc, char *argv[])
   // Copy the host matrix to the device
   CHECK_CUDA(cudaMemcpy(d_m, m, matrix_dim * matrix_dim * sizeof(double), cudaMemcpyHostToDevice));
 
-  stopwatch_start(&sw);
+  
   if(use_lib == 0){
+    stopwatch_start(&sw);
     lud_cuda(d_m, matrix_dim);
+    stopwatch_stop(&sw);
   }
   else {
+    stopwatch_start(&sw);
     // Create the cuSOLVER handle
     CHECK_CUSOLVER(cusolverDnCreate(&handle));
 
@@ -159,8 +162,9 @@ int main(int argc, char *argv[])
     CHECK_CUSOLVER(cusolverDnDgetrf_bufferSize(handle, matrix_dim, matrix_dim, d_m, matrix_dim, &Lwork));
     CHECK_CUDA(cudaMalloc((void **)&devWork, sizeof(double) * Lwork));
     CHECK_CUSOLVER(cusolverDnDgetrf(handle, matrix_dim, matrix_dim, d_m, matrix_dim, devWork, devIpiv, devInfo));
+    stopwatch_stop(&sw);
   }
-  stopwatch_stop(&sw);
+  
   printf("Time consumed without memcpy(ms): %lf\n", 1000*get_interval_by_sec(&sw));
 
   // Copy the result back to the host
